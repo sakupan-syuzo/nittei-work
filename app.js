@@ -1,11 +1,11 @@
 // JSONBin.io 設定
 const JSONBIN_API_KEY = '$2a$10$fuyJjSPztFHlaKC4O/yQJ.wi1F1JwubQoqjmtOOPg1HiUHTClV9dS';
 const JSONBIN_API_URL = 'https://api.jsonbin.io/v3/b';
-const JSONBIN_BIN_ID = '6a46ffd8f5f4af5e29570be7'; // 空にしておく（テストイベント作成後にBIN IDを設定）→済
+const JSONBIN_BIN_ID = '6a46ffd8f5f4af5e29570be7'; // 固定のBIN ID（全員が共有）
 
 // フォルダ識別子（コピー時に変更してください）
 // 例: 'work', 'private', 'family' など
-const FOLDER_ID = 'work'; // 職場用
+const FOLDER_ID = 'work'; // ← 各フォルダで異なる値に変更してください
 
 // LocalStorage キー（フォルダごとに分離）
 const STORAGE_KEY = `event_scheduler_data_${FOLDER_ID}`;
@@ -23,7 +23,30 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeView();
     initEventListeners();
     loadEvents();
+
+    // URLパラメータをチェック
+    checkURLParameters();
 });
+
+// URLパラメータをチェック
+function checkURLParameters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event');
+
+    if (eventId) {
+        // URLパラメータでイベントIDが指定されている場合、直接イベント詳細を表示
+        // loadEvents完了後に実行するため、少し待つ
+        setTimeout(() => {
+            const event = events.find(e => e.id === eventId);
+            if (event) {
+                showEventDetail(eventId);
+            } else {
+                showMessage('指定されたイベントが見つかりません', 'error');
+                showEventList();
+            }
+        }, 500);
+    }
+}
 
 // 初期表示の設定
 function initializeView() {
@@ -173,46 +196,15 @@ async function saveEvents() {
         // ローカルストレージにもバックアップ
         localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
 
-        let response;
-
-        if (!JSONBIN_BIN_ID) {
-            // BIN IDが空の場合は新規作成
-            response = await fetch(JSONBIN_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Master-Key': JSONBIN_API_KEY,
-                    'X-Bin-Name': `event-scheduler-${FOLDER_ID}`
-                },
-                body: JSON.stringify({ events: events })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const newBinId = data.metadata.id;
-                console.log('='.repeat(60));
-                console.log('新しいBINが作成されました！');
-                console.log('BIN ID:', newBinId);
-                console.log('='.repeat(60));
-                console.log('');
-                console.log('次の手順:');
-                console.log('1. app.js を開く');
-                console.log('2. 4行目の JSONBIN_BIN_ID を以下に変更:');
-                console.log(`   const JSONBIN_BIN_ID = '${newBinId}';`);
-                console.log('3. ファイルを保存');
-                console.log('='.repeat(60));
-            }
-        } else {
-            // JSONBin.ioに保存（既存のBINを更新）
-            response = await fetch(`${JSONBIN_API_URL}/${JSONBIN_BIN_ID}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Master-Key': JSONBIN_API_KEY
-                },
-                body: JSON.stringify({ events: events })
-            });
-        }
+        // JSONBin.ioに保存（既存のBINを更新）
+        const response = await fetch(`${JSONBIN_API_URL}/${JSONBIN_BIN_ID}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': JSONBIN_API_KEY
+            },
+            body: JSON.stringify({ events: events })
+        });
 
         return response.ok;
     } catch (error) {
@@ -271,8 +263,8 @@ async function handleCreateEvent(e) {
         events.push(event);
 
         if (await saveEvents()) {
-            showMessage('イベントを作成しました', 'success');
-            showEventList();
+            // イベント作成成功 → URLを表示
+            showEventCreatedModal(eventId);
         } else {
             showMessage('イベントの作成に失敗しました', 'error');
         }
@@ -723,6 +715,62 @@ async function deleteEvent(eventId) {
     }
 }
 
+// ==================== イベント作成完了モーダル ====================
+function showEventCreatedModal(eventId) {
+    const baseUrl = window.location.origin + window.location.pathname;
+    const eventUrl = `${baseUrl}?event=${eventId}`;
+
+    // モーダルのHTML を作成
+    const modalHtml = `
+        <div id="event-created-modal" class="modal" style="display: flex;">
+            <div class="modal-content">
+                <h3>✅ イベントを作成しました！</h3>
+                <p style="margin: 20px 0;">このイベントのURLを参加者に共有してください：</p>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; word-break: break-all;">
+                    <input type="text" id="event-url-input" value="${eventUrl}" readonly
+                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 0.9em;">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-primary" onclick="copyEventUrl()">📋 URLをコピー</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEventCreatedModal()">閉じる</button>
+                </div>
+                <p style="margin-top: 20px; font-size: 0.9em; color: #666;">
+                    💡 参加者はこのURLから直接イベントページにアクセスできます
+                </p>
+            </div>
+        </div>
+    `;
+
+    // モーダルを追加
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function copyEventUrl() {
+    const input = document.getElementById('event-url-input');
+    input.select();
+    input.setSelectionRange(0, 99999); // モバイル対応
+
+    try {
+        document.execCommand('copy');
+        showMessage('URLをコピーしました！', 'success');
+    } catch (err) {
+        // フォールバック：クリップボードAPIを使用
+        navigator.clipboard.writeText(input.value).then(() => {
+            showMessage('URLをコピーしました！', 'success');
+        }).catch(() => {
+            showMessage('コピーに失敗しました。手動でコピーしてください。', 'error');
+        });
+    }
+}
+
+function closeEventCreatedModal() {
+    const modal = document.getElementById('event-created-modal');
+    if (modal) {
+        modal.remove();
+    }
+    showEventList();
+}
+
 // ==================== グローバルスコープに関数を公開 ====================
 // HTMLのonclick属性で使用する関数をグローバルに公開
 window.removeDateCandidate = removeDateCandidate;
@@ -730,3 +778,5 @@ window.removeEditDateCandidate = removeEditDateCandidate;
 window.showEventDetail = showEventDetail;
 window.showEditEventForm = showEditEventForm;
 window.confirmDeleteEvent = confirmDeleteEvent;
+window.copyEventUrl = copyEventUrl;
+window.closeEventCreatedModal = closeEventCreatedModal;
