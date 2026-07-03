@@ -6,8 +6,7 @@
 
 ## 🌟 デモサイト
 
-- **デフォルト版**: https://sakupan-syuzo.github.io/nittei/
-- **職場用**: https://sakupan-syuzo.github.io/nittei-work/
+- https://sakupan-syuzo.github.io/nittei-work/
 
 ## ✨ 機能
 
