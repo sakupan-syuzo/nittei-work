@@ -1,11 +1,11 @@
 // JSONBin.io 設定
 const JSONBIN_API_KEY = '$2a$10$fuyJjSPztFHlaKC4O/yQJ.wi1F1JwubQoqjmtOOPg1HiUHTClV9dS';
 const JSONBIN_API_URL = 'https://api.jsonbin.io/v3/b';
-const JSONBIN_BIN_ID = '6a46f880da38895dfe256075'; // 固定のBIN ID（全員が共有）
+const JSONBIN_BIN_ID = 6a46ffd8f5f4af5e29570be7'; // 固定のBIN ID（全員が共有）
 
 // フォルダ識別子（コピー時に変更してください）
 // 例: 'work', 'private', 'family' など
-const FOLDER_ID = 'default'; // ← 各フォルダで異なる値に変更してください
+const FOLDER_ID = 'work'; // ← 各フォルダで異なる値に変更してください
 
 // LocalStorage キー（フォルダごとに分離）
 const STORAGE_KEY = `event_scheduler_data_${FOLDER_ID}`;
